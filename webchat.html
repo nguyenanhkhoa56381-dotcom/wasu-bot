@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WASU's bot - Dự Án STEM</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    
+    <!-- Thư viện Marked.js để render Markdown -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    
+    <!-- KaTeX cho công thức toán học -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+
+    <style>
+        body {
+            background-color: #030712;
+            background-image: 
+                radial-gradient(circle at 50% 0%, rgba(56, 189, 248, 0.08) 0%, transparent 70%),
+                linear-gradient(rgba(56, 189, 248, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(56, 189, 248, 0.02) 1px, transparent 1px);
+            background-size: 100% 100%, 20px 20px, 20px 20px;
+        }
+
+        .hologram-box {
+            background: rgba(10, 15, 30, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            box-shadow: 0 0 20px rgba(56, 189, 248, 0.2);
+        }
+
+        .typing-cursor::after {
+            content: '▋';
+            display: inline-block;
+            animation: blink 1s infinite;
+            color: #38bdf8;
+            margin-left: 2px;
+            font-size: 0.8em;
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(3, 7, 18, 0.8); }
+        ::-webkit-scrollbar-thumb { background: rgba(56, 189, 248, 0.4); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(56, 189, 248, 0.8); }
+    </style>
+</head>
+<body class="text-sky-100 h-screen flex flex-col justify-between overflow-hidden">
+
+    <!-- Header Hologram -->
+    <header class="hologram-box p-4 flex justify-between items-center shadow-lg z-10 border-t-0 border-x-0">
+        <div>
+            <h1 class="text-xl font-extrabold text-sky-400 tracking-wider flex items-center gap-2">
+                <span class="inline-block w-2.5 h-2.5 rounded-full bg-sky-400 animate-pulse shadow-[0_0_10px_#38bdf8]"></span>
+                WASU'S BOT <span class="text-xs px-2 py-0.5 rounded border border-sky-500/50 text-sky-300 bg-sky-950/50">HOLOGRAM v2.2</span>
+            </h1>
+            <p class="text-xs text-sky-400/60 font-mono mt-0.5">SYS_CREDIT: Nguyễn Anh Khoa | Phím tắt: Ctrl+/ (Focus), Ctrl+L (Xóa bộ nhớ)</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <button onclick="clearHistory()" class="bg-red-950/60 border border-red-500/50 hover:bg-red-900 text-red-300 px-3 py-1.5 rounded-lg text-xs font-mono transition shadow-[0_0_10px_rgba(239,68,68,0.2)]">Xóa bộ nhớ (Ctrl+L)</button>
+            <span class="bg-sky-950/80 border border-sky-400/60 text-sky-300 px-3 py-1.5 rounded-lg text-xs font-mono font-bold shadow-[0_0_10px_rgba(56,189,248,0.3)]">GPT-OSS-120B</span>
+        </div>
+    </header>
+
+    <!-- Chat Container -->
+    <div id="chat-container" class="flex-1 overflow-y-auto p-4 space-y-4 max-w-4xl w-full mx-auto">
+        <div class="flex items-start gap-3">
+            <div class="bg-sky-500 text-slate-950 rounded-lg w-8 h-8 flex items-center justify-center font-mono font-bold shrink-0 shadow-[0_0_10px_#38bdf8]">AI</div>
+            <div class="hologram-box p-4 rounded-2xl max-w-[85%] text-sm leading-relaxed text-sky-200">
+                Xin chào, tôi có thể giúp gì cho cậu?
+            </div>
+        </div>
+    </div>
+
+    <!-- Input Area Hologram -->
+    <div class="hologram-box p-4 shadow-2xl border-b-0 border-x-0">
+        <div class="max-w-4xl mx-auto flex gap-3 items-center">
+            <textarea id="user-input" rows="1" placeholder="" 
+                class="flex-1 bg-slate-950/80 border border-sky-500/40 focus:border-sky-400 rounded-xl px-4 py-3 text-sm text-sky-200 placeholder-sky-600/70 resize-none focus:outline-none focus:shadow-[0_0_15px_rgba(56,189,248,0.3)] transition font-mono"></textarea>
+            <button onclick="sendMessage()" class="bg-sky-500 hover:bg-sky-400 text-slate-950 font-mono font-bold px-6 py-3 rounded-xl transition shadow-[0_0_15px_rgba(56,189,248,0.4)] shrink-0">TRUYỀN TẢI</button>
+        </div>
+    </div>
+
+    <script>
+        let conversationHistory = [];
+
+        // Danh sách các câu gợi ý ngẫu nhiên cho ô nhập văn bản
+        const randomPlaceholders = [
+            "Hãy kể hôm nay của cậu thế nào?",
+            "Cậu muốn hỏi gì?",
+            "Hãy hỏi những gì cậu muốn thực hiện?",
+            "Hôm nay chúng ta sẽ giải quyết bài toán nào nhỉ?",
+            "Cậu cần tìm ý tưởng hay viết mã lệnh gì nào?",
+            "Cứ thoải mái chia sẻ, tôi đang nghe đây!"
+        ];
+
+        function setRandomPlaceholder() {
+            const inputField = document.getElementById('user-input');
+            const randomIndex = Math.floor(Math.random() * randomPlaceholders.length);
+            inputField.placeholder = randomPlaceholders[randomIndex] + " (Enter gửi, Esc xóa, Ctrl+/ focus)";
+        }
+
+        window.onload = function() {
+            setRandomPlaceholder();
+            const saved = localStorage.getItem('wasu_chat_history');
+            if (saved) {
+                conversationHistory = JSON.parse(saved);
+                conversationHistory.forEach(msg => {
+                    appendMessageToDOM(msg.content, msg.role === 'user' ? 'user' : 'ai', false);
+                });
+            }
+            document.getElementById('user-input').focus();
+        };
+
+        function saveHistory() {
+            localStorage.setItem('wasu_chat_history', JSON.stringify(conversationHistory));
+        }
+
+        function clearHistory() {
+            localStorage.removeItem('wasu_chat_history');
+            conversationHistory = [];
+            setRandomPlaceholder(); // Đổi câu ngẫu nhiên mới khi xóa bộ nhớ
+            document.getElementById('chat-container').innerHTML = `
+                <div class="flex items-start gap-3">
+                    <div class="bg-sky-500 text-slate-950 rounded-lg w-8 h-8 flex items-center justify-center font-mono font-bold shrink-0 shadow-[0_0_10px_#38bdf8]">AI</div>
+                    <div class="hologram-box p-4 rounded-2xl max-w-[85%] text-sm leading-relaxed text-sky-200">
+                        Xin chào, tôi có thể giúp gì cho cậu?
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderMathInContainer(element) {
+            if (window.renderMathInElement) {
+                renderMathInElement(element, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\\(', right: '\\)', display: false},
+                        {left: '[', right: ']', display: true}
+                    ],
+                    throwOnError: false
+                });
+            }
+        }
+
+        function appendMessageToDOM(text, sender, animate = false) {
+            const container = document.getElementById('chat-container');
+            const wrapper = document.createElement('div');
+            wrapper.className = `flex items-start gap-3 ${sender === 'user' ? 'flex-row-reverse' : ''}`;
+
+            const avatar = document.createElement('div');
+            avatar.className = `rounded-lg w-8 h-8 flex items-center justify-center font-mono font-bold shrink-0 shadow-md ${sender === 'user' ? 'bg-sky-400 text-slate-950' : 'bg-sky-500 text-slate-950 shadow-[0_0_10px_#38bdf8]'}`;
+            avatar.innerText = sender === 'user' ? 'ME' : 'AI';
+
+            const bubble = document.createElement('div');
+            bubble.className = `p-4 rounded-2xl max-w-[85%] text-sm leading-relaxed ${sender === 'user' ? 'bg-sky-600 text-white shadow-[0_0_15px_rgba(56,189,248,0.3)]' : 'hologram-box text-sky-100'}`;
+
+            if (sender === 'ai') {
+                if (animate) {
+                    bubble.classList.add('typing-cursor');
+                    let i = 0;
+                    const speed = 8;
+                    function typeWriter() {
+                        if (i < text.length) {
+                            bubble.innerHTML = marked.parse(text.substring(0, i + 1));
+                            renderMathInContainer(bubble);
+                            container.scrollTop = container.scrollHeight;
+                            i += Math.max(1, Math.floor(text.length / 150));
+                            setTimeout(typeWriter, speed);
+                        } else {
+                            bubble.classList.remove('typing-cursor');
+                            bubble.innerHTML = marked.parse(text);
+                            renderMathInContainer(bubble);
+                        }
+                    }
+                    typeWriter();
+                } else {
+                    bubble.innerHTML = marked.parse(text);
+                    renderMathInContainer(bubble);
+                }
+            } else {
+                bubble.innerText = text;
+            }
+
+            wrapper.appendChild(avatar);
+            wrapper.appendChild(bubble);
+            container.appendChild(wrapper);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function appendLoading() {
+            const container = document.getElementById('chat-container');
+            const id = 'loading-' + Date.now();
+            const wrapper = document.createElement('div');
+            wrapper.id = id;
+            wrapper.className = 'flex items-start gap-3';
+            wrapper.innerHTML = `
+                <div class="bg-sky-500 text-slate-950 rounded-lg w-8 h-8 flex items-center justify-center font-mono font-bold shrink-0 shadow-[0_0_10px_#38bdf8]">AI</div>
+                <div class="hologram-box p-3 rounded-2xl text-xs font-mono text-sky-400 animate-pulse">Đang xử lý luồng dữ liệu quantum...</div>
+            `;
+            container.appendChild(wrapper);
+            container.scrollTop = container.scrollHeight;
+            return id;
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('user-input');
+            const text = input.value.trim();
+            if (!text) return;
+
+            input.value = '';
+            appendMessageToDOM(text, 'user', false);
+            conversationHistory.push({ role: "user", content: text });
+            saveHistory();
+
+            const loadingId = appendLoading();
+
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ messages: conversationHistory })
+                });
+
+                const data = await response.json();
+                document.getElementById(loadingId)?.remove();
+
+                const botReply = data.reply || 'Không có phản hồi từ máy chủ.';
+                appendMessageToDOM(botReply, 'ai', true);
+                conversationHistory.push({ role: "assistant", content: botReply });
+                saveHistory();
+
+            } catch (error) {
+                document.getElementById(loadingId)?.remove();
+                appendMessageToDOM('Lỗi kết nối tới máy chủ Flask!', 'ai', false);
+            }
+        }
+
+        const inputField = document.getElementById('user-input');
+        
+        inputField.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                inputField.value = '';
+            }
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.key.toLowerCase() === 'l') {
+                e.preventDefault();
+                clearHistory();
+            } else if (e.ctrlKey && e.key === '/') {
+                e.preventDefault();
+                inputField.focus();
+            }
+        });
+    </script>
+</body>
+</html>
