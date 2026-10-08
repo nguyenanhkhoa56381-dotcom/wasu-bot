@@ -1,3 +1,4 @@
+openpyxl
 flask
 flask-cors
 groq
