@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WASU's bot - Dự Án STEM</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    
+    <!-- Thư viện Marked.js để render Markdown -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    
+    <!-- KaTeX cho công thức toán học -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {
+        delimiters: [
+            {left: '$$', right: '$$', display: true},
+            {left: '$', right: '$', display: false},
+            {left: '\\(', right: '\\)', display: false},
+            {left: '[', right: ']', display: true}
+        ]
+    });"></script>
+
+    <style>
+        body {
+            background-color: #000000;
+        }
+        .neon-border {
+            border: 1px solid #38bdf8;
+            box-shadow: 0 0 12px rgba(56, 189, 248, 0.3);
+        }
+        .neon-border-subtle {
+            border: 1px solid rgba(56, 189, 248, 0.4);
+        }
+    </style>
+</head>
+<body class="text-white h-screen flex flex-col justify-between overflow-hidden">
+
+    <!-- Header -->
+    <header class="bg-zinc-950 neon-border-subtle p-4 flex justify-between items-center shadow-lg z-10">
+        <div>
+            <h1 class="text-xl font-bold text-sky-400">WASU's bot</h1>
+            <p class="text-xs text-zinc-400">Credit: Nguyễn Anh Khoa</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <button onclick="clearHistory()" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg text-sm transition">Xóa lịch sử</button>
+            <span class="bg-zinc-900 border border-sky-500 text-sky-400 px-3 py-1.5 rounded-lg text-sm font-semibold">GPT-OSS-120B</span>
+        </div>
+    </header>
+
+    <!-- Chat Container -->
+    <div id="chat-container" class="flex-1 overflow-y-auto p-4 space-y-4 max-w-4xl w-full mx-auto">
+        <!-- Tin nhắn chào mừng mặc định -->
+        <div class="flex items-start gap-3">
+            <div class="bg-sky-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold shrink-0">AI</div>
+            <div class="bg-zinc-900 neon-border-subtle p-3.5 rounded-2xl max-w-[85%] text-sm leading-relaxed shadow-md">
+                Xin chào! Tôi là WASU's bot, sẵn sàng hỗ trợ bạn thực hiện dự án STEM, viết code hoặc giải đáp mọi thắc mắc. Hãy nhập câu hỏi bên dưới nhé!
+            </div>
+        </div>
+    </div>
+
+    <!-- Input Area -->
+    <div class="bg-zinc-950 neon-border-subtle p-4 shadow-lg">
+        <div class="max-w-4xl mx-auto flex gap-3 items-center">
+            <textarea id="user-input" rows="1" placeholder="Nhập tin nhắn của bạn (Enter để gửi, Shift + Enter xuống dòng)..." 
+                class="flex-1 bg-zinc-900 border border-zinc-700 focus:border-sky-400 rounded-xl px-4 py-3 text-sm text-white resize-none focus:outline-none transition"></textarea>
+            <button onclick="sendMessage()" class="bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold px-6 py-3 rounded-xl transition shadow-lg shrink-0">Gửi</button>
+        </div>
+    </div>
+
+    <script>
+        let conversationHistory = [];
+
+        // Load lịch sử từ localStorage nếu có
+        window.onload = function() {
+            const saved = localStorage.getItem('wasu_chat_history');
+            if (saved) {
+                conversationHistory = JSON.parse(saved);
+                const container = document.getElementById('chat-container');
+                // Giữ lại tin nhắn chào mừng, nạp thêm lịch sử cũ
+                conversationHistory.forEach(msg => {
+                    appendMessageToDOM(msg.content, msg.role === 'user' ? 'user' : 'ai');
+                });
+            }
+        };
+
+        function saveHistory() {
+            localStorage.setItem('wasu_chat_history', JSON.stringify(conversationHistory));
+        }
+
+        function clearHistory() {
+            localStorage.removeItem('wasu_chat_history');
+            conversationHistory = [];
+            document.getElementById('chat-container').innerHTML = `
+                <div class="flex items-start gap-3">
+                    <div class="bg-sky-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold shrink-0">AI</div>
+                    <div class="bg-zinc-900 neon-border-subtle p-3.5 rounded-2xl max-w-[85%] text-sm leading-relaxed shadow-md">
+                        Đã xóa lịch sử trò chuyện. Bạn muốn hỏi gì tiếp theo?
+                    </div>
+                </div>
+            `;
+        }
+
+        function appendMessageToDOM(text, sender) {
+            const container = document.getElementById('chat-container');
+            const wrapper = document.createElement('div');
+            wrapper.className = `flex items-start gap-3 ${sender === 'user' ? 'flex-row-reverse' : ''}`;
+
+            const avatar = document.createElement('div');
+            avatar.className = `rounded-full w-8 h-8 flex items-center justify-center font-bold shrink-0 ${sender === 'user' ? 'bg-sky-500 text-slate-950' : 'bg-sky-600 text-white'}`;
+            avatar.innerText = sender === 'user' ? 'Bạn' : 'AI';
+
+            const bubble = document.createElement('div');
+            bubble.className = `p-3.5 rounded-2xl max-w-[85%] text-sm leading-relaxed shadow-md ${sender === 'user' ? 'bg-sky-600 text-white' : 'bg-zinc-900 neon-border-subtle text-white'}`;
+
+            if (sender === 'ai') {
+                bubble.innerHTML = marked.parse(text);
+                // Render KaTeX cho công thức toán học sau khi parse markdown
+                setTimeout(() => {
+                    if (window.renderMathInElement) {
+                        renderMathInElement(bubble, {
+                            delimiters: [
+                                {left: '$$', right: '$$', display: true},
+                                {left: '$', right: '$', display: false},
+                                {left: '\\(', right: '\\)', display: false},
+                                {left: '[', right: ']', display: true}
+                            ]
+                        });
+                    }
+                }, 50);
+            } else {
+                bubble.innerText = text;
+            }
+
+            wrapper.appendChild(avatar);
+            wrapper.appendChild(bubble);
+            container.appendChild(wrapper);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function appendLoading() {
+            const container = document.getElementById('chat-container');
+            const id = 'loading-' + Date.now();
+            const wrapper = document.createElement('div');
+            wrapper.id = id;
+            wrapper.className = 'flex items-start gap-3';
+            wrapper.innerHTML = `
+                <div class="bg-sky-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold shrink-0">AI</div>
+                <div class="bg-zinc-900 neon-border-subtle p-3.5 rounded-2xl text-sm text-zinc-400 italic">Đang suy nghĩ...</div>
+            `;
+            container.appendChild(wrapper);
+            container.scrollTop = container.scrollHeight;
+            return id;
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('user-input');
+            const text = input.value.trim();
+            if (!text) return;
+
+            input.value = '';
+            appendMessageToDOM(text, 'user');
+            conversationHistory.push({ role: "user", content: text });
+            saveHistory();
+
+            const loadingId = appendLoading();
+
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ messages: conversationHistory })
+                });
+
+                const data = await response.json();
+                document.getElementById(loadingId)?.remove();
+
+                const botReply = data.reply || 'Không có phản hồi từ máy chủ.';
+                appendMessageToDOM(botReply, 'ai');
+                conversationHistory.push({ role: "assistant", content: botReply });
+                saveHistory();
+
+            } catch (error) {
+                document.getElementById(loadingId)?.remove();
+                appendMessageToDOM('Lỗi kết nối tới máy chủ Flask!', 'ai');
+            }
+        }
+
+        // Hỗ trợ nhấn Enter để gửi
+        document.getElementById('user-input').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>
