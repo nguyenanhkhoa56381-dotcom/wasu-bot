@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>WASU's bot - Dự Án STEM</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    
+    <!-- Thư viện Marked.js để render Markdown -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    
+    <!-- KaTeX cho công thức toán học -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+
+    <style>
+        body {
+            background-color: #030712;
+            background-image: 
+                radial-gradient(circle at 50% 0%, rgba(56, 189, 248, 0.08) 0%, transparent 70%),
+                linear-gradient(rgba(56, 189, 248, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(56, 189, 248, 0.02) 1px, transparent 1px);
+            background-size: 100% 100%, 20px 20px, 20px 20px;
+        }
+
+        .hologram-box {
+            background: rgba(10, 15, 30, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            box-shadow: 0 0 20px rgba(56, 189, 248, 0.2);
+        }
+
+        .send-btn {
+            display: flex !important;
+            align-items: center;
+            justify-content: center;
+            background-color: #38bdf8;
+            color: #030712;
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            cursor: pointer;
+            border: none;
+            flex-shrink: 0;
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.4);
+            transition: all 0.2s ease;
+        }
+        .send-btn:hover {
+            background-color: #7dd3fc;
+        }
+
+        .typing-cursor::after {
+            content: '▋';
+            display: inline-block;
+            animation: blink 1s infinite;
+            color: #38bdf8;
+            margin-left: 2px;
+            font-size: 0.8em;
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: rgba(3, 7, 18, 0.8); }
+        ::-webkit-scrollbar-thumb { background: rgba(56, 189, 248, 0.4); border-radius: 2px; }
+
+        .sidebar-transition {
+            transition: transform 0.3s ease-in-out, width 0.3s ease-in-out;
+        }
+    </style>
+</head>
+<body class="text-sky-100 h-[100dvh] flex overflow-hidden">
+
+    <!-- SIDEBAR BÊN TRÁI: LỊCH SỬ TRÒ CHUYỆN -->
+    <aside id="sidebar" class="sidebar-transition fixed md:relative z-30 h-full w-64 bg-slate-950/95 border-r border-sky-500/30 backdrop-blur-xl flex flex-col justify-between -translate-x-full md:translate-x-0 shrink-0">
+        <div class="p-3 flex flex-col h-full">
+            <!-- Header trong Sidebar kèm Nút Đóng -->
+            <div class="flex items-center justify-between mb-3">
+                <span class="text-xs font-mono font-bold text-sky-400 tracking-wider">LỊCH SỬ CHAT</span>
+                <button onclick="toggleSidebar()" class="p-1.5 rounded-lg bg-slate-900 border border-sky-500/30 text-sky-400 hover:text-white hover:bg-slate-800 transition" title="Đóng thanh lịch sử">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Nút tạo cuộc trò chuyện mới -->
+            <button onclick="createNewChat()" class="w-full bg-sky-500/10 hover:bg-sky-500/20 border border-sky-400/40 text-sky-300 rounded-xl p-3 flex items-center gap-2 font-mono text-xs font-bold transition shadow-[0_0_10px_rgba(56,189,248,0.2)] mb-3">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+                Cuộc trò chuyện mới
+            </button>
+
+            <!-- Tiêu đề danh sách -->
+            <div class="text-[11px] font-mono text-sky-400/60 uppercase tracking-wider px-2 py-1 mb-1">Gần đây</div>
+
+            <!-- Danh sách các phiên chat -->
+            <div id="history-list" class="flex-1 overflow-y-auto space-y-1 pr-1">
+                <!-- Javascript sẽ tự động thêm danh sách các cuộc trò chuyện vào đây -->
+            </div>
+        </div>
+
+        <!-- Footnote Sidebar -->
+        <div class="p-3 border-t border-sky-500/20 text-[10px] font-mono text-sky-400/50 text-center">
+            WASU's Bot Memory Sys v2.8
+        </div>
+    </aside>
+
+    <!-- KHU VỰC CHÍNH (HEADER + CHAT + INPUT) -->
+    <div class="flex-1 flex flex-col h-full min-w-0 relative">
+
+        <!-- Header Hologram -->
+        <header class="hologram-box p-3 sm:p-4 flex justify-between items-center shadow-lg z-10 border-t-0 border-x-0 shrink-0">
+            <div class="flex items-center gap-2 sm:gap-3">
+                <!-- Nút Mở / Thu gọn Sidebar -->
+                <button onclick="toggleSidebar()" aria-label="Mở lịch sử" class="p-2 rounded-lg bg-sky-950/80 border border-sky-500/40 text-sky-300 hover:bg-sky-900 transition" title="Mở lịch sử trò chuyện">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                </button>
+
+                <h1 class="text-base sm:text-xl font-extrabold text-sky-400 tracking-wider flex items-center gap-2">
+                    <span class="inline-block w-2.5 h-2.5 rounded-full bg-sky-400 animate-pulse shadow-[0_0_10px_#38bdf8]"></span>
+                    WASU'S BOT <span class="text-[10px] sm:text-xs px-1.5 py-0.5 rounded border border-sky-500/50 text-sky-300 bg-sky-950/50">MOBILE v2.8</span>
+                </h1>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button onclick="clearCurrentChat()" class="bg-red-950/60 border border-red-500/50 hover:bg-red-900 text-red-300 px-2.5 py-1.5 sm:px-3 rounded-lg text-xs font-mono transition shadow-[0_0_10px_rgba(239,68,68,0.2)]">Xóa chat hiện tại</button>
+                <span class="hidden md:inline-block bg-sky-950/80 border border-sky-400/60 text-sky-300 px-3 py-1.5 rounded-lg text-xs font-mono font-bold shadow-[0_0_10px_rgba(56,189,248,0.3)]">GPT-OSS-120B</span>
+            </div>
+        </header>
+
+        <!-- Chat Container -->
+        <div id="chat-container" class="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4 max-w-4xl w-full mx-auto">
+            <div class="flex items-start gap-2.5 sm:gap-3">
+                <div class="bg-sky-500 text-slate-950 rounded-lg w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center font-mono font-bold text-xs sm:text-sm shrink-0 shadow-[0_0_10px_#38bdf8]">AI</div>
+                <div class="hologram-box p-3 sm:p-4 rounded-2xl max-w-[88%] sm:max-w-[85%] text-xs sm:text-sm leading-relaxed text-sky-200">
+                    Xin chào, tôi là WASU's Bot. Tôi đã sẵn sàng hỗ trợ cậu! Cậu có thể chat hoặc đính kèm file Word/Excel nhé.
+                </div>
+            </div>
+        </div>
+
+        <!-- Input Area Hologram -->
+        <div class="hologram-box p-3 sm:p-4 shadow-2xl border-b-0 border-x-0 shrink-0">
+            <div class="max-w-4xl mx-auto flex flex-col gap-2">
+                <!-- Hiển thị tên file đang đính kèm (nếu có) -->
+                <div id="file-indicator" class="hidden items-center justify-between bg-sky-950/60 border border-sky-500/40 px-3 py-1 rounded-lg text-xs font-mono text-sky-300">
+                    <span id="file-name-display" class="truncate">Đã chọn file</span>
+                    <button onclick="removeAttachedFile()" class="text-red-400 hover:text-red-300 ml-2 font-bold">✕ Xóa</button>
+                </div>
+
+                <div class="flex gap-2 sm:gap-3 items-center">
+                    <!-- Nút đính kèm file Word / Excel -->
+                    <label for="file-upload" class="cursor-pointer bg-slate-950/80 border border-sky-500/40 hover:border-sky-400 text-sky-400 p-2.5 sm:p-3 rounded-xl flex items-center justify-center transition shadow-[0_0_10px_rgba(56,189,248,0.1)]" title="Đính kèm file Word hoặc Excel">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                        </svg>
+                    </label>
+                    <input type="file" id="file-upload" class="hidden" accept=".docx,.xlsx,.xls" onchange="handleFileSelect(event)">
+
+                    <textarea id="user-input" rows="1" placeholder="" 
+                        class="flex-1 bg-slate-950/80 border border-sky-500/40 focus:border-sky-400 rounded-xl px-3.5 py-2.5 sm:px-4 sm:py-3 text-[16px] sm:text-sm text-sky-200 placeholder-sky-600/70 resize-none focus:outline-none focus:shadow-[0_0_15px_rgba(56,189,248,0.3)] transition font-mono"></textarea>
+                    
+                    <!-- Nút gửi tin nhắn -->
+                    <button onclick="sendMessage()" aria-label="Gửi tin nhắn" class="send-btn">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allSessions = {};
+        let currentSessionId = null;
+        let selectedFile = null;
+
+        const randomPlaceholders = [
+            "Hãy kể hôm nay của cậu thế nào?",
+            "Cậu muốn hỏi gì?",
+            "Hãy hỏi những gì cậu muốn thực hiện?",
+            "Hôm nay chúng ta sẽ giải quyết bài toán nào nhỉ?",
+            "Cậu cần tìm ý tưởng hay viết mã lệnh gì nào?",
+            "Cứ thoải mái chia sẻ, tôi đang nghe đây!"
+        ];
+
+        function setRandomPlaceholder() {
+            const inputField = document.getElementById('user-input');
+            const randomIndex = Math.floor(Math.random() * randomPlaceholders.length);
+            if (window.innerWidth < 640) {
+                inputField.placeholder = randomPlaceholders[randomIndex];
+            } else {
+                inputField.placeholder = randomPlaceholders[randomIndex] + " (Enter gửi, Esc xóa, Ctrl+/ focus)";
+            }
+        }
+
+        window.onload = function() {
+            setRandomPlaceholder();
+            loadSessionsFromStorage();
+            createNewChat();
+
+            if (window.innerWidth >= 640) {
+                document.getElementById('user-input').focus();
+            }
+        };
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('-translate-x-full');
+        }
+
+        function loadSessionsFromStorage() {
+            const saved = localStorage.getItem('wasu_all_sessions');
+            if (saved) {
+                try {
+                    allSessions = JSON.parse(saved);
+                } catch(e) {
+                    allSessions = {};
+                }
+            }
+            renderHistorySidebar();
+        }
+
+        function saveSessionsToStorage() {
+            localStorage.setItem('wasu_all_sessions', JSON.stringify(allSessions));
+            renderHistorySidebar();
+        }
+
+        function createNewChat() {
+            currentSessionId = 'session_' + Date.now();
+            allSessions[currentSessionId] = {
+                title: "Cuộc trò chuyện mới",
+                history: []
+            };
+            
+            document.getElementById('chat-container').innerHTML = `
+                <div class="flex items-start gap-2.5 sm:gap-3">
+                    <div class="bg-sky-500 text-slate-950 rounded-lg w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center font-mono font-bold text-xs sm:text-sm shrink-0 shadow-[0_0_10px_#38bdf8]">AI</div>
+                    <div class="hologram-box p-3 sm:p-4 rounded-2xl max-w-[88%] sm:max-w-[85%] text-xs sm:text-sm leading-relaxed text-sky-200">
+                        Xin chào, đây là cuộc trò chuyện mới. Tôi có thể giúp gì cho cậu?
+                    </div>
+                </div>
+            `;
+            
+            renderHistorySidebar();
+            
+            if (window.innerWidth < 768) {
+                document.getElementById('sidebar').classList.add('-translate-x-full');
+            }
+        }
+
+        function switchSession(sessionId) {
+            if (!allSessions[sessionId]) return;
+            currentSessionId = sessionId;
+
+            const container = document.getElementById('chat-container');
+            container.innerHTML = '';
+
+            const session = allSessions[sessionId];
+            if (session.history.length === 0) {
+                container.innerHTML = `
+                    <div class="flex items-start gap-2.5 sm:gap-3">
+                        <div class="bg-sky-500 text-slate-950 rounded-lg w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center font-mono font-bold text-xs sm:text-sm shrink-0 shadow-[0_0_10px_#38bdf8]">AI</div>
+                        <div class="hologram-box p-3 sm:p-4 rounded-2xl max-w-[88%] sm:max-w-[85%] text-xs sm:text-sm leading-relaxed text-sky-200">
+                            Xin chào, tôi có thể giúp gì cho cậu?
+                        </div>
+                    </div>
+                `;
+            } else {
+                session.history.forEach(msg => {
+                    if (msg.role !== 'system') {
+                        appendMessageToDOM(msg.content, msg.role === 'user' ? 'user' : 'ai', false);
+                    }
+                });
+            }
+
+            renderHistorySidebar();
+
+            if (window.innerWidth < 768) {
+                document.getElementById('sidebar').classList.add('-translate-x-full');
+            }
+        }
+
+        function deleteSession(sessionId, event) {
+            event.stopPropagation();
+            delete allSessions[sessionId];
+            saveSessionsToStorage();
+
+            if (currentSessionId === sessionId) {
+                createNewChat();
+            } else {
+                renderHistorySidebar();
+            }
+        }
+
+        function clearCurrentChat() {
+            if (currentSessionId && allSessions[currentSessionId]) {
+                delete allSessions[currentSessionId];
+                saveSessionsToStorage();
+                createNewChat();
+            }
+        }
+
+        function renderHistorySidebar() {
+            const listDiv = document.getElementById('history-list');
+            listDiv.innerHTML = '';
+
+            const sessionIds = Object.keys(allSessions).reverse();
+
+            sessionIds.forEach(id => {
+                const session = allSessions[id];
+                const isActive = (id === currentSessionId);
+
+                const itemDiv = document.createElement('div');
+                itemDiv.className = `group flex items-center justify-between p-2.5 rounded-xl cursor-pointer text-xs font-mono transition ${isActive ? 'bg-sky-500/20 text-sky-200 border border-sky-400/40 shadow-[0_0_8px_rgba(56,189,248,0.2)]' : 'text-sky-300/70 hover:bg-slate-900 hover:text-sky-200'}`;
+                itemDiv.onclick = () => switchSession(id);
+
+                itemDiv.innerHTML = `
+                    <div class="flex items-center gap-2 truncate pr-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 shrink-0 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                        </svg>
+                        <span class="truncate">${session.title}</span>
+                    </div>
+                    <button onclick="deleteSession('${id}', event)" class="opacity-0 group-hover:opacity-100 hover:text-red-400 p-1 rounded transition" title="Xóa">
+                        ✕
+                    </button>
+                `;
+
+                listDiv.appendChild(itemDiv);
+            });
+        }
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                selectedFile = file;
+                document.getElementById('file-name-display').innerText = `📄 Đã đính kèm: ${file.name}`;
+                document.getElementById('file-indicator').style.display = 'flex';
+            }
+        }
+
+        function removeAttachedFile() {
+            selectedFile = null;
+            document.getElementById('file-upload').value = '';
+            document.getElementById('file-indicator').style.display = 'none';
+        }
+
+        function renderMathInContainer(element) {
+            if (window.renderMathInElement) {
+                renderMathInElement(element, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\\(', right: '\\)', display: false},
+                        {left: '[', right: ']', display: true}
+                    ],
+                    throwOnError: false
+                });
+            }
+        }
+
+        function appendMessageToDOM(text, sender, animate = false) {
+            const container = document.getElementById('chat-container');
+            const wrapper = document.createElement('div');
+            wrapper.className = `flex items-start gap-2.5 sm:gap-3 ${sender === 'user' ? 'flex-row-reverse' : ''}`;
+
+            const avatar = document.createElement('div');
+            avatar.className = `rounded-lg w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center font-mono font-bold text-xs sm:text-sm shrink-0 shadow-md ${sender === 'user' ? 'bg-sky-400 text-slate-950' : 'bg-sky-500 text-slate-950 shadow-[0_0_10px_#38bdf8]'}`;
+            avatar.innerText = sender === 'user' ? 'ME' : 'AI';
+
+            const bubble = document.createElement('div');
+            bubble.className = `p-3 sm:p-4 rounded-2xl max-w-[88%] sm:max-w-[85%] text-xs sm:text-sm leading-relaxed ${sender === 'user' ? 'bg-sky-600 text-white shadow-[0_0_15px_rgba(56,189,248,0.3)]' : 'hologram-box text-sky-100'}`;
+
+            if (sender === 'ai') {
+                if (animate) {
+                    bubble.classList.add('typing-cursor');
+                    let i = 0;
+                    const speed = 8;
+                    function typeWriter() {
+                        if (i < text.length) {
+                            bubble.innerHTML = marked.parse(text.substring(0, i + 1));
+                            renderMathInContainer(bubble);
+                            container.scrollTop = container.scrollHeight;
+                            i += Math.max(1, Math.floor(text.length / 150));
+                            setTimeout(typeWriter, speed);
+                        } else {
+                            bubble.classList.remove('typing-cursor');
+                            finalizeAiBubble(bubble, text);
+                        }
+                    }
+                    typeWriter();
+                } else {
+                    bubble.innerHTML = marked.parse(text);
+                    renderMathInContainer(bubble);
+                    appendExportButtons(bubble, text);
+                }
+            } else {
+                bubble.innerText = text;
+            }
+
+            wrapper.appendChild(avatar);
+            wrapper.appendChild(bubble);
+            container.appendChild(wrapper);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function finalizeAiBubble(bubble, text) {
+            bubble.innerHTML = marked.parse(text);
+            renderMathInContainer(bubble);
+            appendExportButtons(bubble, text);
+        }
+
+        function appendExportButtons(bubble, text) {
+            if (bubble.querySelector('.export-actions')) return;
+
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'export-actions mt-3 pt-2 border-t border-sky-500/20 flex gap-2 items-center';
+            actionsDiv.innerHTML = `
+                <span class="text-[10px] text-sky-400/70 font-mono">Xuất file:</span>
+                <button onclick="exportFile('word', this)" class="bg-blue-950/80 hover:bg-blue-900 border border-blue-500/40 text-blue-200 px-2.5 py-1 rounded text-[11px] font-mono transition shadow-[0_0_5px_rgba(59,130,246,0.2)]">📄 Word</button>
+                <button onclick="exportFile('excel', this)" class="bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-200 px-2.5 py-1 rounded text-[11px] font-mono transition shadow-[0_0_5px_rgba(16,185,129,0.2)]">📊 Excel</button>
+            `;
+            actionsDiv.dataset.content = text;
+            bubble.appendChild(actionsDiv);
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('user-input');
+            const message = input.value.trim();
+            if (!message && !selectedFile) return;
+
+            const fileNote = selectedFile ? `\n\n[File đính kèm: ${selectedFile.name}]` : '';
+            const userMessage = `${message}${fileNote}`.trim();
+            const session = allSessions[currentSessionId];
+            if (!session) return;
+
+            session.history.push({ role: 'user', content: userMessage });
+            appendMessageToDOM(userMessage, 'user');
+            input.value = '';
+            removeAttachedFile();
+            saveSessionsToStorage();
+
+            const notice = 'Giao diện hiện chưa được kết nối với dịch vụ AI. Hãy cấu hình API/backend để nhận câu trả lời.';
+            session.history.push({ role: 'assistant', content: notice });
+            appendMessageToDOM(notice, 'ai');
+            saveSessionsToStorage();
+        }
+
+        function exportFile(format, button) {
+            const content = button.closest('.export-actions')?.dataset.content || '';
+            const isWord = format === 'word';
+            const mimeType = isWord ? 'application/msword' : 'text/csv;charset=utf-8';
+            const fileContent = isWord
+                ? `<html><head><meta charset="UTF-8"></head><body>${marked.parse(content)}</body></html>`
+                : `\uFEFF"${content.replace(/"/g, '""').replace(/\n/g, ' ')}"`;
+            const blob = new Blob([fileContent], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = isWord ? 'wasu-chat.doc' : 'wasu-chat.csv';
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
